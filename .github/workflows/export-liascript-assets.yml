@@ -21,6 +21,8 @@ permissions:
 jobs:
   export-and-release:
     runs-on: ubuntu-latest
+    env:
+      EXPORT_DIR: /tmp/lia-exports-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Check out repository
@@ -31,6 +33,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          rm -rf "$EXPORT_DIR"
+          mkdir -p "$EXPORT_DIR"
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.input_file }}" ]]; then
             INPUT_FILE="${{ inputs.input_file }}"
@@ -66,37 +71,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p outputs
 
-          liaex -i "${{ steps.vars.outputs.input_file }}" -f scorm1.2 --output outputs/scorm12
-          liaex -i "${{ steps.vars.outputs.input_file }}" -f scorm2004 --output outputs/scorm2004
-          liaex -i "${{ steps.vars.outputs.input_file }}" -f pdf --output outputs/course --pdf-timeout 50000
-          liaex -i "${{ steps.vars.outputs.input_file }}" -f ims --output outputs/ims
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f scorm1.2 --output "$EXPORT_DIR/scorm12"
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f scorm2004 --output "$EXPORT_DIR/scorm2004"
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f pdf --output "$EXPORT_DIR/course" --pdf-timeout 50000
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f ims --output "$EXPORT_DIR/ims"
 
       - name: Export Android APK (Docker)
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p outputs
-
           docker pull liascript/exporter
           docker run --rm \
-            -v "$GITHUB_WORKSPACE:/work" \
+            -v "$GITHUB_WORKSPACE:/work:ro" \
+            -v "$EXPORT_DIR:/out" \
             liascript/exporter \
             liaex -f android \
               -i "/work/${{ steps.vars.outputs.input_file }}" \
               --android-appId "${{ steps.vars.outputs.android_app_id }}" \
-              --output /work/outputs/android
+              --output /out/android
 
-      - name: Rename outputs to stable asset names
+      - name: Stage stable asset names
         shell: bash
         run: |
           set -euo pipefail
 
-          mv outputs/scorm12.zip outputs/course-scorm12.zip
-          mv outputs/scorm2004.zip outputs/course-scorm2004.zip
-          mv outputs/ims.zip outputs/course-ims.zip
-          mv outputs/android.apk outputs/course-android.apk
+          mkdir -p outputs
+
+          cp "$EXPORT_DIR/scorm12.zip" outputs/course-scorm12.zip
+          cp "$EXPORT_DIR/scorm2004.zip" outputs/course-scorm2004.zip
+          cp "$EXPORT_DIR/course.pdf" outputs/course.pdf
+          cp "$EXPORT_DIR/ims.zip" outputs/course-ims.zip
+          cp "$EXPORT_DIR/android.apk" outputs/course-android.apk
 
       - name: Create release tag
         id: tag
