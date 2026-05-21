@@ -1,0 +1,46 @@
+'@context': https://schema.org/
+creativeWorkStatus: Published
+type: LearningResource
+name: Nullius in Verba — Traue nicht dem Autoren
+description: >-
+  Lightning Talk: Was müssen interaktive Bildungsmaterialien leisten können?
+  Eine reaktive LiaScript-Präsentation, die Interaktivität jenseits von
+  Klick-Animationen zeigt — mit live Code, explorablen Erklärungen und dem
+  Motto „Nullius in Verba". Präsentiert beim 3. HackathOERn der GWDG Göttingen.
+license: https://creativecommons.org/publicdomain/zero/1.0/deed.de
+id: >-
+  https://liascript.github.io/course/?https://raw.githubusercontent.com/andre-dietrich/Lightning-Talk-HackOERthon/refs/heads/main/README.md
+creator:
+  - givenName: André
+    familyName: Dietrich
+    id: 0009-0009-9272-7154
+    type: Person
+    affiliation:
+      name: Technische Universität Bergakademie Freiberg
+      id: https://ror.org/031vc2293
+      type: Organization
+inLanguage:
+  - de
+about:
+  - https://w3id.org/kim/hochschulfaechersystematik/n079
+  - https://w3id.org/kim/hochschulfaechersystematik/n33
+image: https://img.youtube.com/vi/ZMkk2wDlpO8/maxresdefault.jpg
+video: https://www.youtube.com/watch?v=ZMkk2wDlpO8
+learningResourceType:
+  - https://w3id.org/kim/hcrt/audio
+  - https://w3id.org/kim/hcrt/course
+  - https://w3id.org/kim/hcrt/slide
+  - https://w3id.org/kim/hcrt/web_page
+educationalLevel:
+  - https://w3id.org/kim/educationalLevel/level_A
+interactivityType: active
+isAccessibleForFree: true
+keywords:
+  - LiaScript
+  - OER
+  - Open Educational Resources
+  - Interaktivität
+  - Explorable Explanations
+  - reaktive Dokumente
+  - HackathOERn
+datePublished: '2026-05-20'
