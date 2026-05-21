@@ -1,0 +1,120 @@
+name: Export LiaScript Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      input_file:
+        description: LiaScript entry file path
+        required: false
+        default: README.md
+      android_app_id:
+        description: Android app id override (optional)
+        required: false
+        default: ""
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  export-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prepare export variables
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.input_file }}" ]]; then
+            INPUT_FILE="${{ inputs.input_file }}"
+          else
+            INPUT_FILE="README.md"
+          fi
+
+          if [[ ! -f "$INPUT_FILE" ]]; then
+            echo "Input file not found: $INPUT_FILE"
+            exit 1
+          fi
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.android_app_id }}" ]]; then
+            ANDROID_APP_ID="${{ inputs.android_app_id }}"
+          else
+            owner=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+            repo=$(echo "${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+            ANDROID_APP_ID="io.github.${owner}.${repo}"
+          fi
+
+          echo "input_file=$INPUT_FILE" >> "$GITHUB_OUTPUT"
+          echo "android_app_id=$ANDROID_APP_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install LiaScript exporter
+        run: npm install -g @liascript/exporter
+
+      - name: Export SCORM 1.2, SCORM 2004, PDF, IMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p outputs
+
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f scorm1.2 --output outputs/scorm12
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f scorm2004 --output outputs/scorm2004
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f pdf --output outputs/course --pdf-timeout 50000
+          liaex -i "${{ steps.vars.outputs.input_file }}" -f ims --output outputs/ims
+
+      - name: Export Android APK (Docker)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p outputs
+
+          docker pull liascript/exporter
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            liascript/exporter \
+            liaex -f android \
+              -i "/work/${{ steps.vars.outputs.input_file }}" \
+              --android-appId "${{ steps.vars.outputs.android_app_id }}" \
+              --output /work/outputs/android
+
+      - name: Rename outputs to stable asset names
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mv outputs/scorm12.zip outputs/course-scorm12.zip
+          mv outputs/scorm2004.zip outputs/course-scorm2004.zip
+          mv outputs/ims.zip outputs/course-ims.zip
+          mv outputs/android.apk outputs/course-android.apk
+
+      - name: Create release tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="exports-$(date +'%Y%m%d-%H%M%S')-${GITHUB_SHA::7}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish exports as GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: LiaScript Exports ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            outputs/course-scorm12.zip
+            outputs/course-scorm2004.zip
+            outputs/course.pdf
+            outputs/course-ims.zip
+            outputs/course-android.apk
